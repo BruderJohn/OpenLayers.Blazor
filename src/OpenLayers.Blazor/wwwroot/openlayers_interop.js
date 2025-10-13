@@ -224,8 +224,8 @@ function MapOL(mapId, popupId, closePopupOnClick, options, center, zoom, rotatio
     this.OverlayPopup = new ol.Overlay({
         element: popupElement,
         positioning: "bottom-center",
-        stopEvent: !closePopupOnClick,
-        offset: [0, -50]
+        stopEvent: !this.Options.popupAllowMapEvents,
+        offset: this.Options.popupOffset
     });
 
     this.Map.addOverlay(this.OverlayPopup);
@@ -242,7 +242,6 @@ function MapOL(mapId, popupId, closePopupOnClick, options, center, zoom, rotatio
                 context = context[namespaces[i]];
             }
             context[func].apply(context, [this.Map]);
-            //    configure(configureJsMethod, window, [options]);
         } catch (err) {
             console.error(err);
         }
@@ -504,7 +503,7 @@ MapOL.prototype.updateLayer = function (layer) {
     if (olayer != undefined) {
         olayer.setVisible(layer.visibility);
         olayer.setOpacity(layer.opacity);
-        olayer.setZIndex(layer.zindex);
+        olayer.setZIndex(layer.zIndex);
         olayer.setExtent(layer.extent);
     }
 };
@@ -613,6 +612,7 @@ MapOL.prototype.onMapClick = function (evt, popup, element) {
             if (!layer)
                 return; // no layer = drawing
             const layerId = layer.get("id");
+            const center = ol.extent.getCenter(feature.getGeometry().getExtent());
 
             if (ol.Feature.prototype.isPrototypeOf(feature)) { // full feature
                 const shape = that.mapFeatureToShape(feature);
@@ -631,13 +631,7 @@ MapOL.prototype.onMapClick = function (evt, popup, element) {
                 }
 
                 if (showPopup) {
-                    const coordinates = feature.getGeometry().getCoordinates();
-                    if (shape.geometryType == "Polygon") {
-                        popup.setPosition(evt.coordinate);
-                    } else {
-                        popup.setPosition(coordinates);
-
-                    }
+                    popup.setPosition(center);
                 }
             } else if (ol.render.Feature.prototype.isPrototypeOf(feature)) { // render feature
                 const intFeature = that.mapFeatureToInternalFeature(feature);
@@ -645,7 +639,7 @@ MapOL.prototype.onMapClick = function (evt, popup, element) {
                     that.Instance.invokeMethodAsync("OnInternalFeatureClick", intFeature, layerId);
                 }
                 if (that.Options.autoPopup) {
-                    popup.setPosition(intFeature.coordinates);
+                    popup.setPosition(center);
                 }
             }
         });
@@ -776,7 +770,7 @@ MapOL.prototype.showCurrentPosition = function (show) {
     }
 
     if (!navigator.geolocation) {
-        console.warn("Geolocation wird nicht unterstützt.");
+        console.warn("Geolocation wird nicht unterstï¿½tzt.");
         return;
     }
 
@@ -806,7 +800,7 @@ MapOL.prototype.showCurrentPosition = function (show) {
         // Vorherige Features entfernen
         positionLayer.getSource().clear();
 
-        // Feature für aktuelle Position erstellen
+        // Feature fï¿½r aktuelle Position erstellen
         const positionFeature = new ol.Feature({
             geometry: new ol.geom.Point(point)
         });
