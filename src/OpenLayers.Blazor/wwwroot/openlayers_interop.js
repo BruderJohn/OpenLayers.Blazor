@@ -115,6 +115,10 @@ export function MapOLApplyMapboxStyle(mapId, styleUrl, accessToken) {
     _MapOL[mapId].applyMapboxStyle(styleUrl, accessToken);
 }
 
+export function MapOLShowCurrentPosition(mapId, show) {
+    _MapOL[mapId].showCurrentPosition(show);
+}
+
 function MapOL(mapId, popupId, closePopupOnClick, options, center, zoom, rotation, interactions, layers, instance, configureJsMethod) {
     this.Instance = instance;
     this.Options = options;
@@ -630,8 +634,10 @@ MapOL.prototype.onMapClick = function (evt, popup, element) {
                     const coordinates = feature.getGeometry().getCoordinates();
                     if (shape.geometryType == "Polygon") {
                         popup.setPosition(evt.coordinate);
+                    } else {
+                        popup.setPosition(coordinates);
+
                     }
-                    popup.setPosition(coordinates);
                 }
             } else if (ol.render.Feature.prototype.isPrototypeOf(feature)) { // render feature
                 const intFeature = that.mapFeatureToInternalFeature(feature);
@@ -749,6 +755,80 @@ MapOL.prototype.getCurrentGeoLocation = function () {
             reject("No geolocation received");
         };
     });
+};
+
+MapOL.prototype._currentPositionWatchId = null;
+
+MapOL.prototype.showCurrentPosition = function (show) {
+    var that = this;
+    let positionLayer = that.getLayer("currentPosition");
+
+    // Tracking beenden, falls deaktiviert
+    if (!show) {
+        if (that._currentPositionWatchId !== null) {
+            navigator.geolocation.clearWatch(that._currentPositionWatchId);
+            that._currentPositionWatchId = null;
+        }
+        if (positionLayer) {
+            that.Map.removeLayer(positionLayer);
+        }
+        return;
+    }
+
+    if (!navigator.geolocation) {
+        console.warn("Geolocation wird nicht unterstützt.");
+        return;
+    }
+
+    // Bereits laufendes Tracking beenden, um Mehrfach-Tracking zu vermeiden
+    if (that._currentPositionWatchId !== null) {
+        navigator.geolocation.clearWatch(that._currentPositionWatchId);
+        that._currentPositionWatchId = null;
+    }
+
+    // Startet das kontinuierliche Tracking
+    that._currentPositionWatchId = navigator.geolocation.watchPosition(function (position) {
+        const coords = [position.coords.longitude, position.coords.latitude];
+        const viewProjection = that.Map.getView().getProjection();
+        const point = ol.proj.transform(coords, "EPSG:4326", viewProjection);
+
+        // Layer anlegen, falls nicht vorhanden
+        positionLayer = that.getLayer("currentPosition");
+        if (!positionLayer) {
+            positionLayer = new ol.layer.Vector({
+                source: new ol.source.Vector(),
+                zIndex: 9999
+            });
+            positionLayer.set("id", "currentPosition");
+            that.Map.addLayer(positionLayer);
+        }
+
+        // Vorherige Features entfernen
+        positionLayer.getSource().clear();
+
+        // Feature für aktuelle Position erstellen
+        const positionFeature = new ol.Feature({
+            geometry: new ol.geom.Point(point)
+        });
+        positionFeature.setStyle(
+            new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 3,
+                    fill: new ol.style.Fill({ color: "#3399CC" }),
+                    stroke: new ol.style.Stroke({ color: "#fff", width: 2 })
+                })
+            })
+        );
+
+        positionLayer.getSource().addFeature(positionFeature);
+
+    },
+        function (error) {
+            console.warn("Geolocation-Fehler:", error);
+        },
+        {
+            enableHighAccuracy: true
+        });
 };
 
 MapOL.prototype.disableVisibleExtentChranged = false;

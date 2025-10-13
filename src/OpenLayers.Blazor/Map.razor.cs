@@ -571,6 +571,11 @@ public partial class Map : IAsyncDisposable
 
             LayersList.CollectionChanged += LayersOnCollectionChanged;
 
+            if (_module != null && ShowCurrentPosition)
+            {
+                await SetShowCurrentPosition(ShowCurrentPosition);
+            }
+
             if (EnableEditShapes || EnableNewShapes)
                 await SetDrawingSettings(EnableNewShapes, EnableEditShapes, EnableShapeSnap, NewShapeType, Freehand);
         }
@@ -923,6 +928,22 @@ public partial class Map : IAsyncDisposable
     {
         return _module?.InvokeAsync<Coordinate?>("MapOLGetCurrentGeoLocation", _mapId) ?? ValueTask.FromResult<Coordinate?>(null);
     }
+
+    /// <summary>
+    /// Zeigt oder versteckt die aktuelle GPS-Position auf der Karte.
+    /// </summary>
+    /// <param name="show">true = anzeigen, false = ausblenden</param>
+    public async Task SetShowCurrentPosition(bool show)
+    {
+        if (_module != null)
+            await _module.InvokeVoidAsync("MapOLShowCurrentPosition", _mapId, show);
+    }
+
+    /// <summary>
+    /// Zeigt oder versteckt die aktuelle GPS-Position auf der Karte.
+    /// </summary>
+    [Parameter]
+    public bool ShowCurrentPosition { get; set; } = false;
 
     /// <summary>
     ///     Set all layers to underlying map component
